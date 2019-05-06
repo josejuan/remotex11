@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="jquery-3.4.1.slim.min.js">
+    </script>
+    <script>
+        const K_MOUSE_POW = 1.4;
+        const K_SCROLL_SPEED = 0.25;
+        const AUTO_BTN_MIN_T = 100;
+        const AUTO_BTN_MIN_D = 50;
+        function toRemoteDelta(d, k) {
+            return Math.round(Math.sign(d) * Math.pow(Math.abs(d), K_MOUSE_POW));
+        }
+        function mkButton(id) {
+            $('#' + id).on("touchstart", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.socket.send(id + ",down");
+            }).on("touchmove", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }).on("touchend", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.socket.send(id + ",up");
+            });
+        }
+        $(function() {
+            $('#canvas').on("touchstart", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var ts = e.originalEvent.changedTouches;
+                if(ts.length == 1) {
+                    window.refPos = {x: ts[0].pageX, y: ts[0].pageY};
+                    window.basePos = {x: ts[0].pageX, y: ts[0].pageY};
+                    window.refTime = new Date();
+                }
+            }).on("touchmove", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var ts = e.originalEvent.changedTouches;
+                if(ts.length == 1) {
+                    var curr = {x: ts[0].pageX, y: ts[0].pageY};
+                    var dx = curr.x - window.refPos.x;
+                    var dy = curr.y - window.refPos.y;
+                    window.socket.send("mouse," + toRemoteDelta(dx) + "," + toRemoteDelta(dy));
+                    window.refPos = curr;
+                }
+            }).on("touchend", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var ts = e.originalEvent.changedTouches;
+                if(ts.length == 1) {
+                    var curr = {x: ts[0].pageX, y: ts[0].pageY};
+                    var dx = curr.x - window.basePos.x;
+                    var dy = curr.y - window.basePos.y;
+                    var dst = Math.sqrt(dx * dx + dy * dy);
+                    var t = new Date() - window.refTime;
+                    if(t < AUTO_BTN_MIN_T && dst < AUTO_BTN_MIN_D) {
+                    window.socket.send("ZZZZ," + t + ", " + dst);
+                        window.socket.send("leftbtn,down");
+                        window.socket.send("leftbtn,up");
+                    }
+                }
+            });
+            $('#scroll').on("touchstart", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var ts = e.originalEvent.changedTouches;
+                if(ts.length == 1) {
+                    window.scrollPos = ts[0].pageY;
+                }
+            }).on("touchmove", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var ts = e.originalEvent.changedTouches;
+                if(ts.length == 1) {
+                    var curr = ts[0].pageY;
+                    var dy = Math.round(K_SCROLL_SPEED * (curr - window.scrollPos));
+                    window.socket.send("scroll," + dy);
+                    window.scrollPos = curr;
+                }
+            });
+            $('#send').click(function(e) {
+                window.socket.send("string," + $('#text').val());
+                $('#text').val('');
+            });
+            $('#clear').click(function(e) {
+                $('#text').val('');
+            });
+            mkButton('leftbtn');
+            mkButton('middlebtn');
+            mkButton('rightbtn');
+            usocket = new URL('socket', window.location);
+            usocket.protocol = usocket.protocol.replace('http', 'ws');
+            window.socket = new WebSocket(usocket.href);
+            window.socket.onopen = function (event) {
+                console.log(event);
+            };
+            window.socket.onmessage = function (event) {
+                console.log(event.data);
+            };
+        });
+    </script>
+    <style>
+      html, body {
+        position: fixed;
+        overflow-y: hidden;
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #canvas {
+        height: 90%;
+        background-color: lightgray;
+      }
+      #leftbtn {
+        position: absolute;
+        top: 0;
+        left: 0;
+        background-color: lightsalmon;
+        width: 15%;
+        height: 30%;
+      }
+      #middlebtn {
+        position: absolute;
+        top: 30%;
+        left: 0;
+        background-color: lightgreen;
+        width: 15%;
+        height: 30%;
+      }
+      #rightbtn {
+        position: absolute;
+        top: 60%;
+        left: 0;
+        background-color: lightblue;
+        width: 15%;
+        height: 30%;
+      }
+      #scroll {
+        position: absolute;
+        top: 0;
+        left: 15%;
+        background-color: gray;
+        width: 15%;
+        height: 90%;
+      }
+      #text {
+        position: absolute;
+        bottom: 0;
+        width: 50%;
+        height: 10%;
+      }
+      #send {
+        position: absolute;
+        bottom: 5%;
+        left: 50%;
+        width: 15%;
+        height: 5%;
+      }
+      #clear {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 15%;
+        height: 5%;
+      }
+    </style>
+</head>
+<body>
+<div id="canvas">
+    <div id="leftbtn"></div>
+    <div id="middlebtn"></div>
+    <div id="rightbtn"></div>
+    <div id="scroll"></div>
+</div>
+<textarea id="text"></textarea>
+<input type="button" value="Send" id="send" />
+<input type="button" value="Clear" id="clear" />
+</body>
+</html>
