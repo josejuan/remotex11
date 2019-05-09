@@ -7,6 +7,7 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 import java.awt.*;
 import java.awt.event.InputEvent;
 import java.util.Arrays;
+import java.util.stream.Stream;
 
 import static java.awt.event.KeyEvent.*;
 import static java.util.stream.Collectors.joining;
@@ -56,9 +57,37 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
                 case "string":
                     type(Arrays.stream(xs).skip(1).collect(joining(",")));
                     break;
+                case "dotype":
+                    typeSpecial(Arrays.stream(xs).skip(1));
+                    break;
+                default:
+                    System.out.printf("Command type '%s' not implemented!%n", xs[0]);
+                    break;
             }
         }
 
+    }
+
+    private void typeSpecial(final Stream<String> xs) {
+        doType(xs.mapToInt(this::toSpecial).toArray());
+    }
+
+    private int toSpecial(final String x) {
+        switch (x.toLowerCase()) {
+            case "alt": return VK_ALT;
+            case "f4": return VK_F4;
+            case "up": return VK_UP;
+            case "down": return VK_DOWN;
+            case "left": return VK_LEFT;
+            case "right": return VK_RIGHT;
+            case "pgup": return VK_PAGE_UP;
+            case "pgdown": return VK_PAGE_DOWN;
+            case "esc": return VK_ESCAPE;
+            case "enter": return VK_ENTER;
+            default:
+                System.out.printf("VKey '%s' not mapped%n", x);
+                return 0;
+        }
     }
 
     private void type(CharSequence characters) {
